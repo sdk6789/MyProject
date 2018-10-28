@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC '-//ibatis.apache.org//DTD Sql Map 2.0//EN' 'http://ibatis.apache.org/dtd/sql-map-2.dtd'>
+
+<!-- resultMap - Object를 return 받을 때 사용
+
+resultClass - Integer 등 1개의 value형을 return 받을 때 사용
+
+parameterClass - Object를 ibatis DML(#num#, #title#)문에 적용 시키고 싶을 때 사용
+
+-->
+
+
+<sqlMap>
+	<typeAlias alias="board" type="board.boardVO" />
+	<typeAlias alias="comment" type="board.cboardVO"/>
+	
+	<!-- 리절트 맵 정의 -->
+	<!-- DB단에서 꺼내온 내용을 자바빈에 저장 -->
+	<!-- column으로 DB에서 꺼내온 데이터를 property로 set -->
+	<resultMap id="boardRes" class="board">
+		<result property="no" column="no"/>
+		<result property="subject" column="subject"/>
+		<result property="name" column="name"/>
+		<result property="password" column="password"/>
+		<result property="content" column="content"/>
+		<result property="file_orgname" column="file_orgName"/>
+		<result property="file_savname" column="file_savName"/>
+		<result property="readhit" column="readhit"/>
+		<result property="regdate" column="regdate"/>
+		<result property="ref" column="ref"/>
+		<result property="re_step" column="re_step"/>
+		<result property="re_level" column="re_level"/>
+	</resultMap>
+	
+	<resultMap id="commentRes" class="comment">
+		<result property="no" column="no" />
+		<result property="originno" column="originno"/>
+		<result property="name" column="name"/>
+		<result property="password" column="password" />
+		<result property="content" column="content" />
+		<result property="regdate" column="regdate" />
+	</resultMap>
+	
+	<!-- 공통으로 사용할 select 절 정의 -->
+	<!-- id를 가져다가 sql문을 쓴다. -->
+	<sql id="select-all">
+		SELECT * FROM SBOARD2
+	</sql>
+	
+	<sql id="select-com">
+		SELECT * FROM BOARDC
+	</sql>
+	
+	<!-- #변수명# => PreparedStatement의 "?" 기능 -->
+	<!-- 공통으로 사용할 where-no 절 정의 -->
+	<sql id="where-no">
+		WHERE no = #no#
+	</sql>
+	
+	<!-- select 쿼리문 정의 -->
+	<!-- 꺼내온 DB 데이터들을 resultMap을 통해 mapping 시켜줌 -->
+	<!-- 답변글 로직으로 수정시작 -->
+	<select id="selectAll" resultMap="boardRes" parameterClass="int">
+		<include refid="select-all" />
+		ORDER BY ref DESC, re_step ASC
+	</select>
+	<!-- 답변글 로직 수정 끝 -->
+	
+	<select id="commentSelectAll" resultMap="commentRes" parameterClass="int">
+		SELECT * FROM BOARDC
+		WHERE originno = #no#
+		ORDER BY no DESC
+	</select>
+		
+	<!-- 한줄만 꺼낸다. -->
+	<!-- int형 타입으로 리턴 -->
+	<!-- public int selectOne(int a) -->
+	<select id="selectOne" resultMap="boardRes" parameterClass="int">
+		<include refid="select-all" />
+		<include refid="where-no" />
+	</select>
+	
+	<!-- 검색로직 추가시작 -->
+	<select id="selectSearchW" resultMap="boardRes" parameterClass="string">
+		<include refid="select-all" />
+		WHERE name like #searchKeyword#
+		ORDER BY no DESC
+	</select>
+	<select id="selectSearchS" resultMap="boardRes" parameterClass="string">
+		<include refid="select-all" />
+		WHERE subject like #searchKeyword#
+		ORDER BY no DESC
+	</select>
+	<select id="selectSearchC" resultMap="boardRes" parameterClass="string">
+		<include refid="select-all" />
+		WHERE content like #searchKeyword#
+		ORDER BY no DESC
+	</select>
+	<!-- 검색로직 끝 -->
+	
+	<!-- as no => 테이블 이름 no로 rename -->
+	<!-- 별칭이 "board"인 클래스(boardVO)의 속성 no의 max값 리턴 -->
+	<select id="selectLastNo" resultClass="board" parameterClass="int">
+		SELECT max(no) as no FROM SBOARD2
+	</select>
+	
+	<!-- parameterClass는 한개의 값만 리턴할 수 있음 => 그래서 board 자바빈 넣어줌 -->
+	<!-- public boardVO selectPassword(boardVO board) -->
+	<select id="selectPassword" resultMap="boardRes">
+		<include refid="select-all" />
+		<include refid="where-no" />
+		AND password = #password#
+	</select>
+	
+	<select id="selectPassword2" resultMap="commentRes">
+		<include refid="select-com"/>
+		<include refid="where-no" />
+		AND password = #password#
+	</select>
+	
+	
+	<!-- insert 쿼리문 정의 -->
+	<!-- public void insertBoard(boardVO board) -->
+	<insert id="insertBoard" parameterClass="board">
+		INSERT INTO SBOARD2 (NO,
+							SUBJECT,
+							NAME,
+							PASSWORD,
+							CONTENT,
+							REGDATE,
+							RE_STEP,
+							RE_LEVEL,
+							REF)
+		VALUES (SBOARD2_NO_SEQ.NEXTVAL,
+				#subject#,
+				#name#,
+				#password#,
+				#content#,
+				#regdate#,
+				#re_step#,
+				#re_level#,
+				SBOARD2_NO_SEQ.CURRVAL)
+	</insert>
+	
+	<insert id="insertBoardReply" parameterClass="board">
+		INSERT INTO SBOARD2(NO, SUBJECT, NAME, PASSWORD, CONTENT,
+		REGDATE,RE_STEP,RE_LEVEL,REF)
+		VALUES (SBOARD2_NO_SEQ.NEXTVAL, #subject#, #name#, #password#, #content#,
+		#regdate#, #re_step#, #re_level#, #ref#)
+	</insert>
+	
+	<insert id="insertComment" parameterClass="comment">
+		INSERT INTO BOARDC(NO, ORIGINNO, NAME, PASSWORD, CONTENT, REGDATE)
+		VALUES (BOARDC_NO_SEQ.NEXTVAL, #originno#, #name#, #password#, #content#, #regdate#)
+	</insert>
+	
+	<!-- update 쿼리문 정의 -->
+	<update id="updateBoard" parameterClass="board">
+		UPDATE SBOARD2 SET SUBJECT = #subject#,
+							NAME = #name#,
+							PASSWORD = #password#,
+							CONTENT = #content#
+		<include refid="where-no" />
+	</update>
+	
+	<update id="updateFile" parameterClass="board">
+		UPDATE SBOARD2 SET FILE_ORGNAME = #file_orgname#
+				,FILE_SAVNAME = #file_savname#
+		<include refid="where-no" />
+	</update>
+	
+	<update id="updateReadHit" parameterClass="board">
+		UPDATE SBOARD2 SET READHIT = readHit + 1
+		<include refid="where-no" />
+	</update>
+	
+	<update id="updateReplyStep" parameterClass="board">
+		UPDATE SBOARD2 SET re_step=re_step+1 WHERE ref=#ref# AND re_step>#re_step#
+	</update>
+	
+	<!-- delete 쿼리문 정의 -->
+	<delete id="deleteBoard" parameterClass="board">
+		DELETE FROM SBOARD2
+		<include refid="where-no"/>
+	</delete>
+	
+	<delete id="deleteComment" parameterClass="comment">
+		DELETE FROM BOARDC
+		<include refid="where-no" />
+	</delete>
+</sqlMap>
